@@ -1,7 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { getOpenWeaherLink, weatherClassification } from './helper';
+import { getOpenWeaherLink, translateWeater, weatherClassification } from './helper';
 import axios from 'axios';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon  from 'react-native-vector-icons/Entypo';
@@ -22,19 +22,28 @@ export default function App() {
   const [city,setCity] = useState("");
   const [citySearch,setCitySearch] = useState("");
   const [weather,setWeather] = useState<WeatherType|null>(null);
+  const [isError,setIsError] = useState(false);
 
   const getCityWeather = async () => {
-    const {data: {main,weather,wind:{speed},
-  },
- } = await axios.get(getOpenWeaherLink(city));
-
- setWeather({
-  wind_speed: speed,
-  weather_type: weather[0].main,
-  temp: main.temp,
-  humidity: main.humidity,
-  feels_like: main.feels_like,
-});
+  try{
+      const {data: {main,weather,wind:{speed},
+    },
+   } = await axios.get(getOpenWeaherLink(city));
+  
+   setWeather({
+    wind_speed: speed,
+    weather_type: weather[0].main,
+    temp: main.temp,
+    humidity: main.humidity,
+    feels_like: main.feels_like,
+  });
+  setIsError(false);
+} catch(e:any) {
+  if(e?.response?.status === 404){
+    setWeather(null);
+    setIsError(true);
+  }
+}
 
 };
 
@@ -59,12 +68,38 @@ export default function App() {
           />
           <Pressable style={styles.seachButton}
           onPress={() => {
-            setCity(citySearch);
+            setCity(citySearch.trim());
           }}
           >
             <Icon name="magnifying-glass" size={25}/>
           </Pressable>
         </View>
+        {isError && (
+        <View style={styles.weatherContent}>
+          <Image source={require("./assets/404error.png")}
+          contentFit='cover'
+          style={styles.weatherImage}
+          />
+
+          <Text 
+            style={{
+             color: "#707070",
+            }}
+          >
+           A cidade {" "}
+          <Text 
+            style={{
+             fontWeight: "bold",
+          }}
+          >
+             '{city}'
+          </Text>{" "}
+           Não foi localizada na nossa base de dados
+          </Text>
+        </View>
+
+        )}
+
         {weather && (
         <View style={styles.weatherContent}>
           <Image
@@ -73,8 +108,9 @@ export default function App() {
           style={styles.weatherImage}
           />
           <View style={styles.weatherDetails}>
-            <Text>{weather?.temp} °C</Text>
-            <Text>{weather?.weather_type}</Text>
+            <Text style={styles.temperature}>{weather?.temp} °C</Text>
+            <Text style={styles.type}>
+              {translateWeater(weather?.weather_type)}</Text>
           </View>
           <View style={styles.weatherCards}>
 
@@ -107,10 +143,20 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  temperature:{
+    fontWeight: "700",
+    fontSize: 25,
+  },
+  type: {
+    color: "#707070",
+    fontSize: 15,
+    fontWeight: "700",
+  },
   weatherCards:{
     flexDirection: "row",
     justifyContent: "space-between",
     width: "100%",
+    marginTop: 5,
   },
   weatherDetails: {
     flexDirection: "column",
@@ -122,8 +168,8 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   weatherImage:{
-    width: 150,
-    height: 150,
+    width: 85,
+    height: 85,
   },
   seachInput: {
     width: "84%",
